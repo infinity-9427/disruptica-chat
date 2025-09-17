@@ -1,10 +1,18 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from routes import api_router
 
 app = FastAPI(
-    title="Automated Task Review Agent",
-    description="pgvector-based RAG system for task review and approval",
-    version="1.0.0"
+    title="Fastapi Backend",
+)
+
+# Add CORS middleware
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 app.include_router(api_router, prefix="/api/v1")
