@@ -1,48 +1,147 @@
+networks:
+  fs-app-network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
 services:
   db:
     image: postgres:16-alpine
     container_name: fs-app-postgres
-    env_file: [.env]
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-fsapp}
+      POSTGRES_DB: ${POSTGRES_DB:-auth_db}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_INITDB_ARGS: "--data-checksums --encoding=UTF8"
     volumes:
       - postgres_data:/var/lib/postgresql/data
+      - ./api/scripts/init.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    networks:
+      - fs-app-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-fsapp} -q"] 
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-auth_db}"]
       interval: 10s
+      timeout: 5s
       retries: 5
+      start_period: 20s
     restart: unless-stopped
+    command: >
+      postgres
+      -c shared_buffers=256MB
+      -c max_connections=200
+      -c effective_cache_size=1GB
+      -c maintenance_work_mem=64MB
+      -c checkpoint_completion_target=0.9
+      -c wal_buffers=16MB
+      -c default_statistics_target=100
 
   backend:
-    build: 
+    build:
       context: ./api
       dockerfile: Dockerfile
+      target: production
+      network: host
     container_name: fs-app-backend
-    env_file: [.env]
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-fsapp}
-      PORT: ${API_PORT:-8080}
-    ports: 
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-auth_db}
+      SECRET_KEY: ${SECRET_KEY:-dev-secret-key-change-in-production}
+      PYTHONPATH: /app
+      PYTHONUNBUFFERED: 1
+    ports:
       - "${API_PORT:-8080}:8080"
     depends_on:
       db:
         condition: service_healthy
     restart: unless-stopped
+    networks:
+      - fs-app-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      target: runner
+      network: host
+      args:
+        FROZEN_LOCKFILE: "false"
+    env_file:
+    - ./frontend/.env.local
     container_name: fs-app-frontend
     environment:
-      NEXT_PUBLIC_API_URL: http://localhost:${API_PORT:-8080}
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: http://backend:8080
+      NEXT_TELEMETRY_DISABLED: 1
     ports:
       - "${FRONTEND_PORT:-3000}:3000"
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
     restart: unless-stopped
+    networks:
+      - fs-app-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3000 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  backend-dev:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+      target: production
+      network: host
+    container_name: fs-app-backend-dev
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-auth_db}
+      SECRET_KEY: dev-secret-key
+      PYTHONPATH: /app
+      PYTHONUNBUFFERED: 1
+      RELOAD: "true"
+    ports:
+      - "${API_DEV_PORT:-8081}:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./api:/app:ro
+    networks:
+      - fs-app-network
+    command: ["python", "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8080", "--reload"]
+    profiles: ["dev"]
+    restart: unless-stopped
+
+  test:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+      target: production
+      network: host
+    container_name: fs-app-test
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-auth_db}_test
+      SECRET_KEY: test-secret-key
+      PYTHONPATH: /app
+    depends_on:
+      db:
+        condition: service_healthy
+    command: ["python", "-m", "pytest", "-v", "--tb=short"]
+    volumes:
+      - ./api:/app:ro
+    networks:
+      - fs-app-network
+    profiles: ["test"]
 
 volumes:
   postgres_data:
+    driver: local
