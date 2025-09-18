@@ -52,16 +52,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           color: 'white',
           border: 'none',
         },
+        closeButton: false,
       });
     } catch (error) {
       console.log('❌ Login error:', error);
-      const message = error instanceof Error ? error.message : 'Login failed';
+      let message = 'Login failed';
+      
+      if (error instanceof Error) {
+        // Check for specific error messages
+        if (error.message.includes('User not found') || error.message.includes('Invalid credentials')) {
+          message = 'User does not exist';
+        } else if (error.message.includes('Invalid username or password')) {
+          message = 'User does not exist';
+        } else {
+          message = error.message;
+        }
+      }
+      
       toast.error(message, {
         style: {
           background: '#ef4444',
           color: 'white',
           border: 'none',
         },
+        closeButton: false,
       });
       throw error;
     } finally {
@@ -90,6 +104,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           color: 'white',
           border: 'none',
         },
+        closeButton: false,
       });
     } catch (error) {
       console.log('❌ Registration error:', error);
@@ -100,6 +115,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           color: 'white',
           border: 'none',
         },
+        closeButton: false,
       });
       throw error;
     } finally {
@@ -110,7 +126,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   function logout() {
     AuthService.removeToken();
     setUser(null);
-    toast.success('Logged out successfully');
+    toast.success('Logged out successfully', {
+      closeButton: false,
+    });
     
     // Force navigation to login page
     if (typeof window !== 'undefined') {

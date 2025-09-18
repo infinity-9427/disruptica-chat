@@ -1,6 +1,6 @@
 # Stream Chat Application
 
-Full-stack chat application with real-time AI streaming, JWT authentication, and Gemini LLM integration.
+Chat application with real-time AI streaming, JWT authentication, and Gemini LLM integration.
 
 ## Architecture
 
@@ -14,7 +14,6 @@ Port: 3000             Port: 8080            Port: 5432
 - **Stream Chat**: Real-time AI conversations with Vercel AI SDK
 - **Authentication**: JWT tokens with middleware protection
 - **AI Integration**: Gemini LLM for intelligent responses
-- **Security**: Enterprise-grade validation and protection
 
 ## Tech Stack
 

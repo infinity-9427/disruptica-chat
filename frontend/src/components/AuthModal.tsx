@@ -6,6 +6,7 @@ import { AuthMode } from '@/types/auth';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { authCredentialsSchema } from '@/lib/validations';
 
 interface AuthModalProps {
   initialMode?: AuthMode;
@@ -46,17 +47,17 @@ export function AuthModal({ initialMode = AuthMode.LOGIN, onClose }: AuthModalPr
   const switchText = isLogin ? "Don't have an account?" : 'Already have an account?';
   const switchAction = isLogin ? 'Sign up' : 'Sign in';
 
-  // Real-time validation
+  // Real-time validation with Zod
   useEffect(() => {
     const newValidation = { ...validation };
 
     // Email validation
     if (email) {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (emailRegex.test(email)) {
+      const emailResult = authCredentialsSchema.shape.email.safeParse(email);
+      if (emailResult.success) {
         newValidation.email = { isValid: true, message: 'Valid email address', type: 'success' };
       } else {
-        newValidation.email = { isValid: false, message: 'Please enter a valid email address', type: 'error' };
+        newValidation.email = { isValid: false, message: emailResult.error.issues[0].message, type: 'error' };
       }
     } else if (touched.email) {
       newValidation.email = { isValid: false, message: 'Email is required', type: 'error' };
@@ -64,23 +65,27 @@ export function AuthModal({ initialMode = AuthMode.LOGIN, onClose }: AuthModalPr
 
     // Password validation
     if (password) {
-      if (password.length < 8) {
-        newValidation.password = { 
-          isValid: false, 
-          message: `Password must be at least 8 characters (${password.length}/8)`, 
-          type: 'error' 
-        };
-      } else if (password.length < 12) {
-        newValidation.password = { 
-          isValid: true, 
-          message: 'Good password length', 
-          type: 'warning' 
-        };
+      const trimmedPassword = password.trim();
+      const passwordResult = authCredentialsSchema.shape.password.safeParse(trimmedPassword);
+      if (passwordResult.success) {
+        if (trimmedPassword.length < 12) {
+          newValidation.password = { 
+            isValid: true, 
+            message: 'Good password length', 
+            type: 'warning' 
+          };
+        } else {
+          newValidation.password = { 
+            isValid: true, 
+            message: 'Strong password length', 
+            type: 'success' 
+          };
+        }
       } else {
         newValidation.password = { 
-          isValid: true, 
-          message: 'Strong password length', 
-          type: 'success' 
+          isValid: false, 
+          message: `Password must be at least 8 characters (${trimmedPassword.length}/8)`, 
+          type: 'error' 
         };
       }
     } else if (touched.password) {
@@ -90,7 +95,9 @@ export function AuthModal({ initialMode = AuthMode.LOGIN, onClose }: AuthModalPr
     // Confirm password validation (only for registration)
     if (!isLogin) {
       if (confirmPassword) {
-        if (password === confirmPassword) {
+        const trimmedConfirmPassword = confirmPassword.trim();
+        const trimmedPassword = password.trim();
+        if (trimmedPassword === trimmedConfirmPassword) {
           newValidation.confirmPassword = { isValid: true, message: 'Passwords match', type: 'success' };
         } else {
           newValidation.confirmPassword = { isValid: false, message: 'Passwords do not match', type: 'error' };
@@ -106,12 +113,12 @@ export function AuthModal({ initialMode = AuthMode.LOGIN, onClose }: AuthModalPr
   // Check if form is valid for submission
   const canSubmit = () => {
     if (isLogin) {
-      return validation.email.isValid && validation.password.isValid && password.length >= 8;
+      return validation.email.isValid && validation.password.isValid && password.trim().length >= 8;
     }
     return validation.email.isValid && 
            validation.password.isValid && 
            validation.confirmPassword.isValid &&
-           password.length >= 8;
+           password.trim().length >= 8;
   };
 
   async function handleSubmit(e: React.FormEvent) {
@@ -123,20 +130,20 @@ export function AuthModal({ initialMode = AuthMode.LOGIN, onClose }: AuthModalPr
     if (!canSubmit()) {
       // Show specific error
       if (!validation.email.isValid) {
-        toast.error(validation.email.message);
+        toast.error(validation.email.message, { closeButton: false });
       } else if (!validation.password.isValid) {
-        toast.error(validation.password.message);
+        toast.error(validation.password.message, { closeButton: false });
       } else if (!isLogin && !validation.confirmPassword.isValid) {
-        toast.error(validation.confirmPassword.message);
+        toast.error(validation.confirmPassword.message, { closeButton: false });
       }
       return;
     }
 
     try {
       if (isLogin) {
-        await login({ email, password });
+        await login({ email: email.trim(), password: password.trim() });
       } else {
-        await register({ email, password });
+        await register({ email: email.trim(), password: password.trim() });
       }
       onClose?.();
     } catch {
