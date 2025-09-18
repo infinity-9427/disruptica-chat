@@ -15,6 +15,9 @@ Port: 3000             Port: 8080            Port: 5432
 - **Authentication**: JWT tokens with middleware protection
 - **AI Integration**: Gemini LLM for intelligent responses
 
+## Screenshots
+<p align="center"> <img src="https://res.cloudinary.com/jorge-tarifa/image/upload/v1758220054/disruptica/mhas6r6fdkyoe1g4nydt.png" alt="Chat UI with real-time AI streaming" width="48%" /> <img src="https://res.cloudinary.com/jorge-tarifa/image/upload/v1758220054/disruptica/e81wpkbfogkovqjx78zx.png" alt="Authenticated session and AI response flow" width="48%" /> </p>
+
 ## Tech Stack
 
 **Frontend**: Next.js 15, TypeScript, Tailwind CSS, Vercel AI SDK  
