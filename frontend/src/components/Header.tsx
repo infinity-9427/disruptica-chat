@@ -13,7 +13,6 @@ type Props = {
   brand?: string;
 };
 
-// ---- Portal simple al <body> ----
 function BodyPortal({ children, id = 'mobile-menu-portal' }: { children: React.ReactNode; id?: string }) {
   const elRef = useRef<HTMLDivElement | null>(null);
 
@@ -36,7 +35,7 @@ function BodyPortal({ children, id = 'mobile-menu-portal' }: { children: React.R
 
 // TS: declarar inert
 
-export default function Header({ brand = 'Disruptica AI' }: Props) {
+export default function Header({ brand = 'Disruptica Stream Chat' }: Props) {
   const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
   const [pendingPath, setPendingPath] = useState<string | null>(null);
