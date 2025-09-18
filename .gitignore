@@ -1,4 +1,4 @@
-# Environment variables and secrets (CRITICAL - Never commit these)
+# Environment variables and secrets 
 .env
 .env.*
 !.env.example
